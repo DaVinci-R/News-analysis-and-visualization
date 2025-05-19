@@ -1,0 +1,1307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>新闻分析仪表板</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .filters {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .filter-group label {
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        input[type="date"], select, input[type="range"] {
+            padding: 6px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: white;
+        }
+
+        .sentiment-filter {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sentiment-value {
+            min-width: 60px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .quick-filters {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .quick-filter-btn {
+            padding: 6px 12px;
+            border: 1px solid #3498db;
+            background-color: white;
+            color: #3498db;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .quick-filter-btn:hover {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .quick-filter-btn.active {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .main-content {
+            padding: 30px 0;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .stat-card h3 {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-subtext {
+            font-size: 14px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            height: 400px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .chart-container h3 {
+            margin-bottom: 15px;
+            font-size: 18px;
+            color: #2c3e50;
+            flex: 0 0 auto;
+        }
+
+        .chart-container canvas {
+            flex: 1;
+            max-height: calc(100% - 40px);
+            width: 100% !important;
+            height: auto !important;
+            position: relative;
+        }
+
+        #wordcloud {
+            width: 100%;
+            height: 300px;
+        }
+
+        .news-list {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .news-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .news-item:hover {
+            background-color: #f9f9f9;
+        }
+
+        .news-item:last-child {
+            border-bottom: none;
+        }
+
+        .news-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .news-category {
+            display: inline-block;
+            padding: 4px 8px;
+            background-color: #3498db;
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        .sentiment-score {
+            font-weight: bold;
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .sentiment-positive {
+            background-color: #2ecc71;
+            color: white;
+        }
+
+        .sentiment-negative {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .sentiment-neutral {
+            background-color: #95a5a6;
+            color: white;
+        }
+
+        .keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin: 10px 0;
+        }
+
+        .keyword-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            background-color: #ecf0f1;
+            color: #7f8c8d;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .keyword-tag:hover {
+            background-color: #3498db;
+            color: white;
+        }
+
+        .news-summary {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s;
+        }
+
+        .news-summary.expanded {
+            max-height: 200px;
+            margin-top: 10px;
+        }
+
+        .market-impact {
+            margin-top: 10px;
+            font-size: 14px;
+        }
+
+        .market-tag {
+            display: inline-block;
+            padding: 2px 6px;
+            background-color: #f39c12;
+            color: white;
+            border-radius: 3px;
+            font-size: 12px;
+            margin-right: 5px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #ecf0f1;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            font-size: 16px;
+            color: #7f8c8d;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab.active {
+            color: #3498db;
+            border-bottom-color: #3498db;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* 媒体查询以适应不同屏幕尺寸 */
+        @media screen and (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            }
+        }
+        
+        @media screen and (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .chart-container {
+                height: 350px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <h1>新闻分析仪表板</h1>
+            <div class="filters">
+                <div class="filter-group">
+                    <label>选择日期：</label>
+                    <input type="date" id="startDate" value="2025-05-12">
+                    <span>至</span>
+                    <input type="date" id="endDate" value="2025-05-12">
+                </div>
+
+                <div class="filter-group sentiment-filter">
+                    <label>情绪筛选：</label>
+                    <input type="range" id="sentimentMin" min="-1" max="1" step="0.1" value="-1">
+                    <span class="sentiment-value" id="sentimentMinValue">-1.0</span>
+                    <span>至</span>
+                    <input type="range" id="sentimentMax" min="-1" max="1" step="0.1" value="1">
+                    <span class="sentiment-value" id="sentimentMaxValue">1.0</span>
+                </div>
+
+                <div class="filter-group">
+                    <label>市场相关性：</label>
+                    <select id="marketRelevance">
+                        <option value="all">全部</option>
+                        <option value="1">相关</option>
+                        <option value="0">不相关</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label>分类：</label>
+                    <select id="categoryFilter">
+                        <option value="all">全部分类</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="quick-filters">
+                <button class="quick-filter-btn" data-sentiment-min="0.8" data-sentiment-max="1">
+                    极度积极 (>0.8)
+                </button>
+                <button class="quick-filter-btn" data-sentiment-min="-1" data-sentiment-max="-0.8">
+                    极度消极 (<-0.8)
+                </button>
+                <button class="quick-filter-btn" data-sentiment-min="-0.2" data-sentiment-max="0.2">
+                    中性 (-0.2~0.2)
+                </button>
+                <button class="quick-filter-btn">
+                    重置筛选
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content">
+        <div class="container">
+            <!-- 统计卡片 -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>新闻总数</h3>
+                    <div class="stat-value" id="totalNews">0</div>
+                    <div class="stat-subtext" id="marketRelevantCount">市场相关: 0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>平均情绪</h3>
+                    <div class="stat-value" id="avgSentiment">0.00</div>
+                    <div class="stat-subtext" id="sentimentTrend">趋势: -</div>
+                </div>
+                <div class="stat-card">
+                    <h3>主要分类</h3>
+                    <div class="stat-value" id="topCategory">-</div>
+                    <div class="stat-subtext" id="categoryCount">0 条新闻</div>
+                </div>
+                <div class="stat-card">
+                    <h3>热门关键词</h3>
+                    <div class="stat-value" id="topKeyword">-</div>
+                    <div class="stat-subtext" id="keywordCount">出现 0 次</div>
+                </div>
+            </div>
+
+            <!-- 可视化图表 -->
+            <div class="charts-grid">
+                <div class="chart-container">
+                    <h3>情绪分布</h3>
+                    <canvas id="sentimentChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>分类分布</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>关键词云</h3>
+                    <canvas id="wordcloud"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>市场影响分布</h3>
+                    <canvas id="marketImpactChart"></canvas>
+                </div>
+            </div>
+
+            <!-- 标签页导航 -->
+            <div class="tabs">
+                <button class="tab active" data-tab="all">全部新闻</button>
+                <button class="tab" data-tab="category">按分类查看</button>
+                <button class="tab" data-tab="important">重要新闻</button>
+            </div>
+
+            <!-- 新闻列表 -->
+            <div class="news-list">
+                <div class="tab-content active" id="all-news">
+                    <div class="loading">加载中...</div>
+                </div>
+                <div class="tab-content" id="category-news">
+                    <div class="loading">加载中...</div>
+                </div>
+                <div class="tab-content" id="important-news">
+                    <div class="loading">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // 全局错误处理
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error('全局错误:', {message, source, lineno, colno, error});
+            alert(`发生错误: ${message}\n位置: ${source}:${lineno}:${colno}`);
+            return false;
+        };
+        
+        // API配置
+        const API_URL = 'http://localhost:5000/api'; // 需要根据实际后端地址修改
+
+        // 全局数据存储
+        let newsData = [];
+        let filteredData = [];
+
+        // 图表实例
+        let sentimentChart = null;
+        let categoryChart = null;
+        let marketImpactChart = null;
+
+        // 初始化页面
+        // 在 DOMContentLoaded 事件中添加
+        document.addEventListener('DOMContentLoaded', function() {
+            // 设置默认日期为今天
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').value = today;
+            document.getElementById('endDate').value = today;
+
+            initializeEventListeners();
+            fetchNewsData();
+        });
+
+        // 初始化事件监听
+        function initializeEventListeners() {
+            // 日期选择
+            document.getElementById('startDate').addEventListener('change', fetchNewsData);
+            document.getElementById('endDate').addEventListener('change', fetchNewsData);
+
+            // 情绪滑块
+            document.getElementById('sentimentMin').addEventListener('input', function(e) {
+                document.getElementById('sentimentMinValue').textContent = parseFloat(e.target.value).toFixed(1);
+                filterData();
+            });
+
+            document.getElementById('sentimentMax').addEventListener('input', function(e) {
+                document.getElementById('sentimentMaxValue').textContent = parseFloat(e.target.value).toFixed(1);
+                filterData();
+            });
+
+            // 市场相关性和分类筛选
+            document.getElementById('marketRelevance').addEventListener('change', filterData);
+            document.getElementById('categoryFilter').addEventListener('change', filterData);
+
+            // 快速筛选按钮
+            document.querySelectorAll('.quick-filter-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const minVal = this.dataset.sentimentMin;
+                    const maxVal = this.dataset.sentimentMax;
+
+                    if (minVal && maxVal) {
+                        document.getElementById('sentimentMin').value = minVal;
+                        document.getElementById('sentimentMax').value = maxVal;
+                        document.getElementById('sentimentMinValue').textContent = parseFloat(minVal).toFixed(1);
+                        document.getElementById('sentimentMaxValue').textContent = parseFloat(maxVal).toFixed(1);
+
+                        // 更新按钮状态
+                        document.querySelectorAll('.quick-filter-btn').forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                    } else {
+                        // 重置筛选
+                        document.getElementById('sentimentMin').value = -1;
+                        document.getElementById('sentimentMax').value = 1;
+                        document.getElementById('sentimentMinValue').textContent = '-1.0';
+                        document.getElementById('sentimentMaxValue').textContent = '1.0';
+                        document.getElementById('marketRelevance').value = 'all';
+                        document.getElementById('categoryFilter').value = 'all';
+
+                        document.querySelectorAll('.quick-filter-btn').forEach(b => b.classList.remove('active'));
+                    }
+
+                    filterData();
+                });
+            });
+
+            // 标签页切换
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const tabName = this.dataset.tab;
+                    showTab(tabName);
+                });
+            });
+        }
+
+        // 获取新闻数据
+        async function fetchNewsData() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            try {
+                const response = await fetch(`${API_URL}/news?start_date=${startDate}&end_date=${endDate}`);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                newsData = await response.json();
+
+                updateCategoryFilter();
+                filterData();
+            } catch (error) {
+                console.error('获取数据失败:', error);
+                // 显示错误信息
+                document.getElementById('all-news').innerHTML = '<div class="loading">获取数据失败，请检查后端服务是否正常运行</div>';
+            }
+        }
+
+        // 筛选数据
+        function filterData() {
+            const sentimentMin = parseFloat(document.getElementById('sentimentMin').value);
+            const sentimentMax = parseFloat(document.getElementById('sentimentMax').value);
+            const marketRelevance = document.getElementById('marketRelevance').value;
+            const category = document.getElementById('categoryFilter').value;
+
+            filteredData = newsData.filter(news => {
+                let pass = true;
+                
+                // 确保sentiment是数字
+                const sentimentValue = typeof news.sentiment === 'number' ? news.sentiment : parseFloat(news.sentiment) || 0;
+
+                // 情绪筛选
+                if (sentimentValue < sentimentMin || sentimentValue > sentimentMax) {
+                    pass = false;
+                }
+
+                // 市场相关性筛选
+                if (marketRelevance !== 'all' && news.is_market_relevant.toString() !== marketRelevance) {
+                    pass = false;
+                }
+
+                // 分类筛选
+                if (category !== 'all' && news.category !== category) {
+                    pass = false;
+                }
+
+                return pass;
+            });
+
+            updateUI();
+        }
+
+        // 更新分类筛选器
+        function updateCategoryFilter() {
+            const categories = [...new Set(newsData.map(news => news.category))];
+            const select = document.getElementById('categoryFilter');
+
+            select.innerHTML = '<option value="all">全部分类</option>';
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+        }
+
+        // 更新UI
+        function updateUI() {
+            console.log("更新UI开始");
+            updateStats();
+            console.log("统计卡片更新完成");
+            updateCharts();
+            console.log("图表更新完成");
+            updateNewsList();
+            console.log("新闻列表更新完成");
+            updateCategoryView();
+            console.log("分类视图更新完成");
+            updateImportantNews();
+            console.log("重要新闻更新完成");
+        }
+
+        // 更新统计卡片
+        function updateStats() {
+            // 新闻总数
+            document.getElementById('totalNews').textContent = filteredData.length;
+
+            // 市场相关数量
+            const marketRelevant = filteredData.filter(n => n.is_market_relevant === 1).length;
+            document.getElementById('marketRelevantCount').textContent = `市场相关: ${marketRelevant}`;
+
+            // 平均情绪
+            if (filteredData.length > 0) {
+                // 确保所有sentiment值都是数字
+                const avgSentiment = filteredData.reduce((sum, n) => {
+                    const sentimentValue = typeof n.sentiment === 'number' ? n.sentiment : parseFloat(n.sentiment) || 0;
+                    return sum + sentimentValue;
+                }, 0) / filteredData.length;
+                
+                document.getElementById('avgSentiment').textContent = avgSentiment.toFixed(2);
+
+                // 情绪趋势
+                if (avgSentiment > 0.2) {
+                    document.getElementById('sentimentTrend').textContent = '趋势: 积极 ↑';
+                    document.getElementById('sentimentTrend').style.color = '#2ecc71';
+                } else if (avgSentiment < -0.2) {
+                    document.getElementById('sentimentTrend').textContent = '趋势: 消极 ↓';
+                    document.getElementById('sentimentTrend').style.color = '#e74c3c';
+                } else {
+                    document.getElementById('sentimentTrend').textContent = '趋势: 中性 →';
+                    document.getElementById('sentimentTrend').style.color = '#95a5a6';
+                }
+            }
+
+            // 主要分类
+            const categoryCount = {};
+            filteredData.forEach(n => {
+                const category = n.category || '未分类';
+                categoryCount[category] = (categoryCount[category] || 0) + 1;
+            });
+
+            const topCategory = Object.entries(categoryCount)
+                .sort((a, b) => b[1] - a[1])[0];
+
+            if (topCategory) {
+                document.getElementById('topCategory').textContent = topCategory[0];
+                document.getElementById('categoryCount').textContent = `${topCategory[1]} 条新闻`;
+            }
+
+            // 热门关键词
+            const keywordCount = {};
+            filteredData.forEach(n => {
+                if (n.keywords) {
+                    const keywords = n.keywords.split(',');
+                    keywords.forEach(kw => {
+                        const keyword = kw.trim();
+                        if (keyword) {
+                            keywordCount[keyword] = (keywordCount[keyword] || 0) + 1;
+                        }
+                    });
+                }
+            });
+
+            const topKeyword = Object.entries(keywordCount)
+                .sort((a, b) => b[1] - a[1])[0];
+
+            if (topKeyword) {
+                document.getElementById('topKeyword').textContent = topKeyword[0];
+                document.getElementById('keywordCount').textContent = `出现 ${topKeyword[1]} 次`;
+            }
+        }
+
+        // 更新图表
+        function updateCharts() {
+            updateSentimentChart();
+            updateCategoryChart();
+            updateWordCloud();
+            updateMarketImpactChart();
+        }
+
+        // 更新情绪分布图
+        function updateSentimentChart() {
+            const ctx = document.getElementById('sentimentChart').getContext('2d');
+
+            // 统计各情绪区间的数量
+            const sentimentRanges = {
+                '极度消极 (<-0.8)': 0,
+                '消极 (-0.8~-0.3)': 0,
+                '中性 (-0.3~0.3)': 0,
+                '积极 (0.3~0.8)': 0,
+                '极度积极 (>0.8)': 0
+            };
+
+            filteredData.forEach(news => {
+                // 确保sentiment是数字
+                const sentimentValue = typeof news.sentiment === 'number' ? news.sentiment : parseFloat(news.sentiment) || 0;
+                
+                if (sentimentValue < -0.8) sentimentRanges['极度消极 (<-0.8)']++;
+                else if (sentimentValue < -0.3) sentimentRanges['消极 (-0.8~-0.3)']++;
+                else if (sentimentValue < 0.3) sentimentRanges['中性 (-0.3~0.3)']++;
+                else if (sentimentValue < 0.8) sentimentRanges['积极 (0.3~0.8)']++;
+                else sentimentRanges['极度积极 (>0.8)']++;
+            });
+
+            if (sentimentChart) {
+                sentimentChart.destroy();
+            }
+
+            sentimentChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(sentimentRanges),
+                    datasets: [{
+                        data: Object.values(sentimentRanges),
+                        backgroundColor: [
+                            '#e74c3c',
+                            '#f39c12',
+                            '#95a5a6',
+                            '#3498db',
+                            '#2ecc71'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            left: 10,
+                            right: 10,
+                            top: 0,
+                            bottom: 10
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                boxWidth: 12,
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        tooltip: {
+                            bodyFont: {
+                                size: 12
+                            },
+                            titleFont: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新分类分布图
+        function updateCategoryChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+
+            const categoryCount = {};
+            filteredData.forEach(n => {
+                const category = n.category || '未分类';
+                categoryCount[category] = (categoryCount[category] || 0) + 1;
+            });
+
+            const categories = Object.keys(categoryCount);
+            const counts = Object.values(categoryCount);
+
+            if (categoryChart) {
+                categoryChart.destroy();
+            }
+
+            categoryChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: categories,
+                    datasets: [{
+                        label: '新闻数量',
+                        data: counts,
+                        backgroundColor: '#3498db'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    layout: {
+                        padding: {
+                            left: 5,
+                            right: 10,
+                            top: 10,
+                            bottom: 10
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                font: {
+                                    size: 11
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 更新词云
+        function updateWordCloud() {
+            console.log("开始更新关键词云");
+            const keywordData = {};
+
+            filteredData.forEach(n => {
+                if (n.keywords) {
+                    const keywords = n.keywords.split(',');
+                    keywords.forEach(kw => {
+                        const keyword = kw.trim();
+                        if (keyword) {
+                            if (!keywordData[keyword]) {
+                                keywordData[keyword] = {
+                                    count: 0,
+                                    sentiment: 0
+                                };
+                            }
+                            keywordData[keyword].count++;
+                            keywordData[keyword].sentiment += n.sentiment;
+                        }
+                    });
+                }
+            });
+
+            // 获取前十高频关键词
+            const sortedKeywords = Object.entries(keywordData)
+                .sort((a, b) => b[1].count - a[1].count)
+                .slice(0, 10);
+
+            console.log("关键词数据处理完成:", sortedKeywords);
+            
+            if (sortedKeywords.length === 0) {
+                console.log("没有关键词数据，不创建图表");
+                return;
+            }
+            
+            const labels = sortedKeywords.map(([word]) => word);
+            const data = sortedKeywords.map(([, data]) => data.count);
+
+            const ctx = document.getElementById('wordcloud');
+            if (!ctx) {
+                console.error("找不到关键词图表的Canvas元素");
+                return;
+            }
+            
+            const ctxObj = ctx.getContext('2d');
+            console.log("获取关键词图表Canvas上下文:", ctxObj);
+
+            if (window.keywordChart) {
+                console.log("销毁旧关键词图表");
+                window.keywordChart.destroy();
+            }
+
+            console.log("创建新关键词图表", {labels, data});
+            try {
+                window.keywordChart = new Chart(ctxObj, {
+                    type: 'bar',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: '关键词频率',
+                            data: data,
+                            backgroundColor: '#3498db'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        layout: {
+                            padding: {
+                                left: 5,
+                                right: 15,
+                                top: 10,
+                                bottom: 10
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: '前十高频关键词',
+                                font: {
+                                    size: 13
+                                }
+                            },
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+                console.log("关键词图表创建成功");
+            } catch(e) {
+                console.error("创建关键词图表时出错:", e);
+            }
+        }
+
+        // 更新市场影响图表
+        function updateMarketImpactChart() {
+            console.log("开始更新市场影响图表");
+            
+            const marketCount = {};
+            filteredData.forEach(n => {
+                if (n.impact_markets) {
+                    const markets = n.impact_markets.split(',');
+                    markets.forEach(market => {
+                        const m = market.trim();
+                        if (m) {
+                            marketCount[m] = (marketCount[m] || 0) + 1;
+                        }
+                    });
+                }
+            });
+
+            // 获取前十高频市场
+            const sortedMarkets = Object.entries(marketCount)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            console.log("市场影响数据处理完成:", sortedMarkets);
+            
+            if (sortedMarkets.length === 0) {
+                console.log("没有市场影响数据，不创建图表");
+                return;
+            }
+                
+            const markets = sortedMarkets.map(([market]) => market);
+            const counts = sortedMarkets.map(([, count]) => count);
+
+            const ctx = document.getElementById('marketImpactChart');
+            if (!ctx) {
+                console.error("找不到市场影响图表的Canvas元素");
+                return;
+            }
+            
+            const ctxObj = ctx.getContext('2d');
+            console.log("获取市场影响图表Canvas上下文:", ctxObj);
+
+            if (marketImpactChart) {
+                console.log("销毁旧市场影响图表");
+                marketImpactChart.destroy();
+            }
+
+            console.log("创建新市场影响图表", {markets, counts});
+            try {
+                marketImpactChart = new Chart(ctxObj, {
+                    type: 'bar',
+                    data: {
+                        labels: markets,
+                        datasets: [{
+                            label: '影响次数',
+                            data: counts,
+                            backgroundColor: '#f39c12'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        indexAxis: 'y',
+                        layout: {
+                            padding: {
+                                left: 5,
+                                right: 15,
+                                top: 10,
+                                bottom: 10
+                            }
+                        },
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            },
+                            y: {
+                                ticks: {
+                                    font: {
+                                        size: 11
+                                    }
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: '前十高频影响市场',
+                                font: {
+                                    size: 13
+                                }
+                            },
+                            legend: {
+                                display: false
+                            }
+                        }
+                    }
+                });
+                console.log("市场影响图表创建成功");
+            } catch(e) {
+                console.error("创建市场影响图表时出错:", e);
+            }
+        }
+
+        // 更新新闻列表
+        function updateNewsList() {
+            const container = document.getElementById('all-news');
+
+            if (filteredData.length === 0) {
+                container.innerHTML = '<div class="loading">没有符合条件的新闻</div>';
+                return;
+            }
+
+            const newsHTML = filteredData.map(news => {
+                // 确保sentiment是数字
+                const sentimentValue = typeof news.sentiment === 'number' ? news.sentiment : parseFloat(news.sentiment) || 0;
+                
+                return `
+                <div class="news-item" onclick="toggleSummary(this)">
+                    <div class="news-header">
+                        <div>
+                            <span class="news-category">${news.category || '未分类'}</span>
+                            <span class="news-category" style="background-color: #7f8c8d;">${news.subcategory || '未知'}</span>
+                        </div>
+                        <span class="sentiment-score ${getSentimentClass(sentimentValue)}">
+                            情绪: ${sentimentValue.toFixed(2)}
+                        </span>
+                    </div>
+
+                    <div class="keywords">
+                        ${(news.keywords || '').split(',').map(kw =>
+                            `<span class="keyword-tag" onclick="filterByKeyword('${kw.trim()}')">${kw.trim()}</span>`
+                        ).join('')}
+                    </div>
+
+                    <div class="news-summary">${news.summary || '无摘要'}</div>
+
+                    ${news.impact_markets ? `
+                        <div class="market-impact">
+                            <strong>影响市场：</strong>
+                            ${news.impact_markets.split(',').map(market =>
+                                `<span class="market-tag">${market.trim()}</span>`
+                            ).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `}).join('');
+
+            container.innerHTML = newsHTML;
+        }
+
+        // 更新分类视图
+        function updateCategoryView() {
+            const container = document.getElementById('category-news');
+
+            // 按分类分组
+            const newsByCategory = {};
+            filteredData.forEach(news => {
+                if (!newsByCategory[news.category]) {
+                    newsByCategory[news.category] = [];
+                }
+                newsByCategory[news.category].push(news);
+            });
+
+            let categoryHTML = '';
+            for (const [category, news] of Object.entries(newsByCategory)) {
+                categoryHTML += `
+                    <div class="category-section">
+                        <h3 style="margin: 20px 0 10px; color: #2c3e50;">${category} (${news.length}条)</h3>
+                        ${news.map(n => {
+                            // 确保sentiment是数字
+                            const sentimentValue = typeof n.sentiment === 'number' ? n.sentiment : parseFloat(n.sentiment) || 0;
+                            
+                            return `
+                            <div class="news-item" onclick="toggleSummary(this)">
+                                <div class="news-header">
+                                    <span class="news-category" style="background: #7f8c8d;">${n.subcategory || '未知'}</span>
+                                    <span class="sentiment-score ${getSentimentClass(sentimentValue)}">
+                                        情绪: ${sentimentValue.toFixed(2)}
+                                    </span>
+                                </div>
+                                <div class="keywords">
+                                    ${(n.keywords || '').split(',').map(kw =>
+                                        `<span class="keyword-tag" onclick="filterByKeyword('${kw.trim()}')">${kw.trim()}</span>`
+                                    ).join('')}
+                                </div>
+                                <div class="news-summary">${n.summary || '无摘要'}</div>
+                            </div>
+                        `}).join('')}
+                    </div>
+                `;
+            }
+
+            container.innerHTML = categoryHTML || '<div class="loading">没有数据</div>';
+        }
+
+        // 更新重要新闻
+        function updateImportantNews() {
+            const container = document.getElementById('important-news');
+
+            // 筛选重要新闻：情绪极端且市场相关
+            const importantNews = filteredData.filter(news => {
+                // 确保sentiment是数字
+                const sentimentValue = typeof news.sentiment === 'number' ? news.sentiment : parseFloat(news.sentiment) || 0;
+                return news.is_market_relevant === 1 && (sentimentValue > 0.8 || sentimentValue < -0.8);
+            }).sort((a, b) => {
+                const sentimentA = typeof a.sentiment === 'number' ? a.sentiment : parseFloat(a.sentiment) || 0;
+                const sentimentB = typeof b.sentiment === 'number' ? b.sentiment : parseFloat(b.sentiment) || 0;
+                return Math.abs(sentimentB) - Math.abs(sentimentA);
+            });
+
+            if (importantNews.length === 0) {
+                container.innerHTML = '<div class="loading">没有重要新闻</div>';
+                return;
+            }
+
+            const importantHTML = importantNews.map(news => {
+                // 确保sentiment是数字
+                const sentimentValue = typeof news.sentiment === 'number' ? news.sentiment : parseFloat(news.sentiment) || 0;
+                
+                return `
+                <div class="news-item" onclick="toggleSummary(this)" style="border-left: 4px solid ${sentimentValue > 0 ? '#2ecc71' : '#e74c3c'};">
+                    <div class="news-header">
+                        <div>
+                            <span class="news-category">${news.category || '未分类'}</span>
+                            <span class="news-category" style="background: #e74c3c;">重要</span>
+                        </div>
+                        <span class="sentiment-score ${getSentimentClass(sentimentValue)}">
+                            情绪: ${sentimentValue.toFixed(2)}
+                        </span>
+                    </div>
+                    <div class="keywords">
+                        ${(news.keywords || '').split(',').map(kw =>
+                            `<span class="keyword-tag" onclick="filterByKeyword('${kw.trim()}')">${kw.trim()}</span>`
+                        ).join('')}
+                    </div>
+                    <div class="news-summary">${news.summary || '无摘要'}</div>
+                    <div class="market-impact">
+                        <strong>影响市场：</strong>
+                        ${(news.impact_markets || '').split(',').map(market =>
+                            `<span class="market-tag">${market.trim()}</span>`
+                        ).join('')}
+                    </div>
+                </div>
+            `}).join('');
+
+            container.innerHTML = importantHTML;
+        }
+
+        // 工具函数
+        function getSentimentClass(sentiment) {
+            // 确保sentiment是数字
+            const sentimentValue = typeof sentiment === 'number' ? sentiment : parseFloat(sentiment) || 0;
+            
+            if (sentimentValue > 0.3) return 'sentiment-positive';
+            if (sentimentValue < -0.3) return 'sentiment-negative';
+            return 'sentiment-neutral';
+        }
+
+        function toggleSummary(element) {
+            const summary = element.querySelector('.news-summary');
+            summary.classList.toggle('expanded');
+        }
+
+        function showTab(tabName) {
+            // 更新标签状态
+            document.querySelectorAll('.tab').forEach(tab => {
+                if (tab.dataset.tab === tabName) {
+                    tab.classList.add('active');
+                } else {
+                    tab.classList.remove('active');
+                }
+            });
+
+            // 更新内容显示
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            if (tabName === 'all') {
+                document.getElementById('all-news').classList.add('active');
+            } else if (tabName === 'category') {
+                document.getElementById('category-news').classList.add('active');
+            } else if (tabName === 'important') {
+                document.getElementById('important-news').classList.add('active');
+            }
+        }
+
+        function filterByKeyword(keyword) {
+            // 在当前页面临时高亮包含该关键词的新闻
+            const newsItems = document.querySelectorAll('.news-item');
+            newsItems.forEach(item => {
+                const keywords = item.querySelectorAll('.keyword-tag');
+                let hasKeyword = false;
+                keywords.forEach(tag => {
+                    if (tag.textContent === keyword) {
+                        hasKeyword = true;
+                        tag.style.backgroundColor = '#3498db';
+                        tag.style.color = 'white';
+                    }
+                });
+
+                if (hasKeyword) {
+                    item.style.backgroundColor = '#f0f8ff';
+                } else {
+                    item.style.opacity = '0.5';
+                }
+            });
+
+            // 3秒后恢复
+            setTimeout(() => {
+                newsItems.forEach(item => {
+                    item.style.backgroundColor = '';
+                    item.style.opacity = '';
+                });
+                document.querySelectorAll('.keyword-tag').forEach(tag => {
+                    tag.style.backgroundColor = '';
+                    tag.style.color = '';
+                });
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
